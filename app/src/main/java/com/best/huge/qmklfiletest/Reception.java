@@ -10,6 +10,8 @@ public class Reception {
     private String msg;
     private HashMap<String,String> data;
 
+    private String letter;
+
     public Reception() {
         code= "";
         msg= "";
@@ -19,11 +21,16 @@ public class Reception {
     public HashMap<String, String> getData() {
         return data;
     }
+
     public String getCode() {
         return code;
     }
 
     public String getMsg() {
         return msg;
+    }
+
+    public String getLetters() {
+        return letter;
     }
 }

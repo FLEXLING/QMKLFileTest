@@ -1,44 +1,45 @@
 package com.best.huge.qmklfiletest;
 
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
+import com.github.promeg.pinyinhelper.Pinyin;
+import com.gjiazhe.wavesidebar.WaveSideBar;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
-
-import java.text.Collator;
 import java.util.*;
 
 public class MainActivity extends AppCompatActivity {
     String TAG="MainActivity";
 
-    private List<FileItem> fileList=new ArrayList<>();
-    FileAdapter fileAdapter=new FileAdapter(fileList);
+    private RecyclerView fileRecyclerView;
+    private List<FileItem> fileList;
+    private FileAdapter fileAdapter;
+
     String cate="/";
+    private PinyinComparator mComparator=new PinyinComparator();
+    private LinearLayoutManager layoutManager;
+    private TitleItemDecoration mDecoration;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        RecyclerView fileRecyclerView=(RecyclerView)findViewById(R.id.recyclerview);
-        LinearLayoutManager layoutManager=new LinearLayoutManager(this);
-        fileRecyclerView.setLayoutManager(layoutManager);
-        FileItem initfile=new FileItem("test","size");
-        fileList.add(initfile);
-        fileRecyclerView.setAdapter(fileAdapter);
+
+        initView();
+        //网络请求
         request("/");
-        fileAdapter.setOnClickListener(new FileAdapter.OnClickListener() {
-            public void onClick(View itemView,int position,String cate){
-                request(cate);
-            }
-        });
     }
 
     private void request(final String catelogueGo){
@@ -62,12 +63,21 @@ public class MainActivity extends AppCompatActivity {
                 public void onResponse(Call<Reception> call, Response<Reception> response) {
                     fileList.clear();
                     Log.d(TAG, "onResponse: "+response.body().getCode());
+
                     for(String name:response.body().getData().keySet()){
                         String size=response.body().getData().get(name);
                         FileItem fileItem=new FileItem(name,size);
+                        String namePinYin=Pinyin.toPinyin(name.charAt(0));
+                        String firstLetter=namePinYin.substring(0,1).toUpperCase();
+                        if (firstLetter.matches("[A-Z]")) {
+                            fileItem.setLetters(firstLetter.toUpperCase());
+                        } else {
+                            fileItem.setLetters("#");
+                        }
                         fileList.add(fileItem);
-                        listSortByName();
                     }
+                    Collections.sort(fileList,mComparator);
+
                     fileAdapter.notifyDataSetChanged();
                     Log.d(TAG, "request: 请求成功"+catelogueGo);
                     cate=catelogueGo;
@@ -84,6 +94,53 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public void initView(){
+        fileRecyclerView=(RecyclerView)findViewById(R.id.recyclerview);
+        layoutManager=new LinearLayoutManager(this);
+        fileRecyclerView.setLayoutManager(layoutManager);
+        layoutManager.setOrientation(LinearLayoutManager.VERTICAL);
+        fileList=new ArrayList<>();
+        SharedPreferencesUtils.setStoredMessage(getApplicationContext(),"send",cate);
+        fileAdapter=new FileAdapter(fileList,getApplicationContext());
+        fileRecyclerView.setAdapter(fileAdapter);
+
+        WaveSideBar sideBar = (WaveSideBar) findViewById(R.id.side_bar);
+        sideBar.setOnSelectIndexItemListener(new WaveSideBar.OnSelectIndexItemListener() {
+            @Override
+            public void onSelectIndexItem(String index) {
+                int position =fileAdapter.getPositionForSection(index.charAt(0));
+                layoutManager.scrollToPositionWithOffset(position,0);
+            }
+        });
+
+        Collections.sort(fileList,mComparator);
+
+        mDecoration=new TitleItemDecoration(this,fileList);
+        fileRecyclerView.addItemDecoration(mDecoration);
+        fileRecyclerView.addItemDecoration(new DividerItemDecoration(MainActivity.this,DividerItemDecoration.VERTICAL));
+
+        fileAdapter.setOnClickListener(new FileAdapter.OnClickListener(){
+            public void onClick(View itemView,int position,String cate){
+                request(cate);
+            }
+        });
+    }
+
+    private void fillData(Response<Reception> response) {
+        for(String name:response.body().getData().keySet()){
+            String size=response.body().getData().get(name);
+            FileItem fileItem=new FileItem(name,size);
+            String namePinYin=Pinyin.toPinyin(name.charAt(0));
+            String firstLetter=namePinYin.substring(0,1).toUpperCase();
+            if (firstLetter.matches("[A-Z]")) {
+                fileItem.setLetters(firstLetter.toUpperCase());
+            } else {
+                fileItem.setLetters("#");
+            }
+            fileList.add(fileItem);
+        }
+    }
+
     @Override
     public void onBackPressed(){
         if(cate!="/"){
@@ -91,18 +148,12 @@ public class MainActivity extends AppCompatActivity {
             if(cate.length()==0){
                 cate=cate.concat("/");
             }
+            SharedPreferences.Editor editor = MainActivity.this.getSharedPreferences("SEND", Context.MODE_PRIVATE).edit();
+            editor.putString("SEND",cate);
+            editor.apply();
             request(cate);
         }else{
             super.onBackPressed();
         }
-    }
-
-    public void  listSortByName(){
-        Collections.sort(fileList, new Comparator<FileItem>() {
-            @Override
-            public int compare(FileItem o1,FileItem o2) {
-                return Collator.getInstance(Locale.CHINESE).compare(o1.getName(),o2.getName());
-            }
-        });
     }
 }
