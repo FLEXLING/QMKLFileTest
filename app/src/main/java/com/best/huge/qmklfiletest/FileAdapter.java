@@ -17,6 +17,7 @@ import static android.content.Context.MODE_PRIVATE;
 
 public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder>{
 
+    String TAG="FileAdapter";
     private OnClickListener onClickListener;
     private String path;
     private Context context;
@@ -63,10 +64,13 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder>{
         itemView.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v){
-                path=SharedPreferencesUtils.getStoredMessage(context,"send");
+                path=SharedPreferencesUtils.getStoredMessage(context,"SEND");
+                Log.d(TAG,"点击后传入的路径："+path);
                 path=path.concat(file.getName()+"/");
                 final String finalPath=path;
+                Log.d(TAG,"点击后的路径："+finalPath);
                 onClickListener.onClick(itemView,viewHolder.getLayoutPosition(),finalPath);
+//                SharedPreferencesUtils.setStoredMessage(context,"",path);
             }
         });
     }
